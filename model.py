@@ -3,39 +3,47 @@ import tensorflow
 from tensorflow import keras
 from tensorflow.keras.layers import Dense, Flatten, Dropout, Conv2D, MaxPooling2D
 from tensorflow.keras.models import load_model
-
 import matplotlib.pyplot as plt
 from input import Input
 
 
 class Model:
 
-    def __init__(self, data: tuple[tensorflow.data.Dataset, tensorflow.data.Dataset] | None = None) -> None:
+    def __init__(self, new_model: bool = False, model_language_mode: str = 'both_languages', data: tuple[tensorflow.data.Dataset, tensorflow.data.Dataset] | None = None) -> None:
         '''
 
         Parameters
         ----------
         data
+        new_model
+        model_language_mode
         '''
-        self._model = keras.Sequential()
-        self._model.add(
-            Conv2D(filters=32, kernel_size=(3, 3), padding='same', activation='relu', input_shape=(28, 28, 1)))
-        self._model.add(MaxPooling2D(pool_size=(2, 2), strides=2))
-        self._model.add(Conv2D(filters=64, kernel_size=(3, 3), padding='same', activation='relu'))
-        self._model.add(MaxPooling2D(pool_size=(2, 2), strides=2))
-        self._model.add(Flatten())
-        self._model.add(Dense(128, activation='relu'))
-        self._model.add(Dropout(0.3))
-        self._model.add(Dense(256, activation='relu'))
-        self._model.add(Dense(59, activation='softmax'))
-        self._model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+        if not new_model:
+            languages = {
+                'both_languages': 'all_symbols_both_languages_model.h5',
+                'cyrillic': 'all_symbols_cyrillic_model.h5',
+                'latin': 'all_symbols_latin_model.h5'
+            }
+            self._model = load_model(languages[model_language_mode])
+        else:
+            self._model = keras.Sequential()
+            self._model.add(Conv2D(filters=32, kernel_size=(3, 3), padding='same', activation='relu', input_shape=(28, 28, 1)))
+            self._model.add(MaxPooling2D(pool_size=(2, 2), strides=2))
+            self._model.add(Conv2D(filters=64, kernel_size=(3, 3), padding='same', activation='relu'))
+            self._model.add(MaxPooling2D(pool_size=(2, 2), strides=2))
+            self._model.add(Flatten())
+            self._model.add(Dense(128, activation='relu'))
+            self._model.add(Dropout(0.3))
+            self._model.add(Dense(256, activation='relu'))
+            self._model.add(Dense(69, activation='softmax'))
+            self._model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
         if data:
             self._train, self._val = data
         else:
             self._train, self._val = None, None
         self._train_history = None
 
-    def train_model(self, n_epochs: int, ignore_save_history: bool = 0) -> None:
+    def train_model(self, n_epochs: int = 10, ignore_save_history: bool = 0) -> None:
         '''
 
         Parameters
@@ -53,7 +61,7 @@ class Model:
         if not ignore_save_history:
             self._train_history = model_training_history
 
-    def make_plot(self, train_history) -> None:
+    def make_plot(self, train_history = self._train_history) -> None:
         '''
 
         Parameters
@@ -64,8 +72,8 @@ class Model:
         -------
 
         '''
-        plt.plot(self._train_history['loss'])
-        plt.plot(self._train_history['val_loss'])
+        plt.plot(train_history['loss'])
+        plt.plot(train_history['val_loss'])
         plt.grid(True)
         plt.show()
 
@@ -132,7 +140,7 @@ class Model:
         -------
 
         '''
-        return self._model.predict(np.reshape(input, (1, 28, 28, 1)))
+        return np.argmax(self._model.predict(np.reshape(input, (1, 28, 28, 1))))
 
     def img_to_str(self, path: str) -> str:
         '''
@@ -146,94 +154,89 @@ class Model:
 
         '''
         alph = {
-            0: 'а',  # 43 английская
-            1: 'й',
-            2: 'к',  # 45 английская
-            3: 'л',
-            4: 'н',  # 67 английская
-            5: 'о',
-            6: 'з',
-            7: 'п',
-            8: 'м',
-            9: 'р',  # 50 английская
-            10: 'с',  # 62 английская
+            10: 'а',  # 43 английская
+            19: 'и',
+            20: 'й',
+            21: 'к',  # 53 английская
+            22: 'л',
+            23: 'м',  # 55 английская
+            24: 'н',  # 50 английская
+            25: 'о',  # 57 английская
+            26: 'п',
+            27: 'р',  # 58 английская
+            28: 'с',  # 45 английская
             11: 'б',
-            12: 'т',  # 55 английская
-            13: 'у',  # 60 английская
-            14: 'ф',
-            15: 'х',  # 59 английская
-            16: 'ц',
-            17: 'ч',
-            18: 'ш',
-            19: 'щ',
-            20: 'ъ',
-            21: 'ы',
-            22: 'в',  # 54 английская
-            23: 'ь',
-            24: 'э',
-            25: 'ю',
-            26: 'я',
-            27: 'г',
-            28: 'д',
-            29: 'е',  # 64 английская
-            30: 'ё',
-            31: 'ж',
-            32: 'и',  # 56 английская
-            33: '0',
-            34: '1',
-            35: '2',
-            36: '3',
-            37: '4',
-            38: '5',
-            39: '6',
-            40: '7',
-            41: '8',
-            42: '9',
-            43: 'a',  # 0 русская
-            44: 'j',
-            45: 'k',  # 2 русская
-            46: 'l',
-            47: 'm',  # 8 русская
-            48: 'n',
-            49: 'o',  # 5 русская
-            50: 'p',  # 9 русская,
-            51: 'q',
-            52: 'r',
-            53: 's',
-            54: 'b',  # 22 русская
-            55: 't',  # 12 русская
-            56: 'u',  # 32 русская
-            57: 'v',
-            58: 'w',
-            59: 'x',  # 15 русская
-            60: 'y',  # 13 русская
-            61: 'z',
-            62: 'c',  # 10 русская
-            63: 'd',
-            64: 'e',  # 29 русская
-            65: 'f',
-            66: 'g',
-            67: 'h',  # 4 русская
-            68: 'i',
+            29: 'т',  # 62 английская
+            30: 'у',  # 67 английская
+            31: 'ф',
+            32: 'х',  # 66 английская
+            33: 'ц',
+            34: 'ч',
+            35: 'ш',
+            36: 'щ',
+            37: 'ъ',
+            38: 'ы',
+            12: 'в',  # 44 английская
+            39: 'ь',
+            40: 'э',
+            41: 'ю',
+            42: 'я',
+            13: 'г',
+            14: 'д',  # 46 английская
+            15: 'е',  # 47 английская
+            16: 'ё',
+            17: 'ж',
+            18: 'з',
+            0: '0',
+            1: '1',
+            2: '2',
+            3: '3',
+            4: '4',
+            5: '5',
+            6: '6',
+            7: '7',
+            8: '8',
+            9: '9',
+            43: 'a',  # 10 русская
+            52: 'j',
+            53: 'k',  # 21 русская
+            54: 'l',
+            55: 'm',  # 23 русская
+            56: 'n',
+            57: 'o',  # 25 русская
+            58: 'p',  # 27 русская
+            59: 'q',
+            60: 'r',
+            61: 's',
+            44: 'b',  # 12 русская
+            62: 't',  # 29 русская
+            63: 'u',
+            64: 'v',
+            65: 'w',
+            66: 'x',  # 32 русская
+            67: 'y',  # 30 русская
+            68: 'z',
+            45: 'c',  # 28 русская
+            46: 'd',  # 14 русская
+            47: 'e',  # 15 русская
+            48: 'f',
+            49: 'g',
+            50: 'h',  # 24 русская
+            51: 'i'
         }
-        trouble_pairs = [[0, 43], [2, 45], [4, 67], [9, 50], [10, 62], [12, 55], [8, 47],
-                         [13, 60], [15, 59], [22, 54], [29, 64], [32, 56]]
+        trouble_pairs = [[10, 43], [21, 53], [23, 55], [24, 50], [25, 57], [27, 58], [28, 45],
+                         [29, 62], [30, 67], [32, 66], [12, 44], [14, 46], [15, 47]]
         trouble = [j for i in trouble_pairs for j in i]
-        rus = [i for i in range(33)]
-        numbs = [i for i in range(33, 43)]
+        numbs = [i for i in range(10)]
+        rus = [i for i in range(10, 43)]
         en = [i for i in range(43, 69)]
         answer = []
         structure = [0, 0, 0]
         letters = Input.get_letters(path)
         for letter in letters:
-            pred = self.predict(letter)[0]
-            max_el, max_idx = 0, -1
-            for i, el in enumerate(pred):
-                if el > max_el:
-                    max_el = el
-                    max_idx = i
-            answer.append(max_idx)
-            res = int((max_idx in rus)) * 0 + int((max_idx in numbs)) * 1 + int((max_idx in en)) * 2
+            prediction = self.predict(letter)
+            answer.append(prediction)
+            res = (int((prediction in numbs)) * 0 + int((prediction in rus)) * 1 + int((prediction in en)) * 2)
             structure[res] += 1
         language = [rus, numbs, en][structure.index(max(structure))]
         for l in range(len(answer)):

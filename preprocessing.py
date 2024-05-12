@@ -125,8 +125,10 @@ class Preprocessing:
         -------
 
         '''
+        number_of_classes = len(os.listdir(self._output_folder))
         train_data, val_data = image_dataset_from_directory(self._output_folder,
-                                                            label_mode='categorical',
+                                                            label_mode='int',
+                                                            class_names=[str(x) for x in range(0, number_of_classes)],
                                                             color_mode='grayscale',
                                                             batch_size=32,
                                                             image_size=(28, 28),
