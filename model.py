@@ -9,16 +9,22 @@ from input import Input
 
 class Model:
 
-    def __init__(self, new_model: bool = False, model_language_mode: str = 'both_languages', data: tuple[tensorflow.data.Dataset, tensorflow.data.Dataset] | None = None) -> None:
+    def __init__(self, new_model: bool = False, model_language_mode: str = 'both_languages') -> None:
         '''
 
         Parameters
         ----------
-        data
         new_model
         model_language_mode
+
+        Return
+        ----------
         '''
         if not new_model:
+            if model_language_mode == 'both_languages':
+                self.__letter_processing_needed = True
+            else:
+                self.__letter_processing_needed = False
             languages = {
                 'both_languages': 'all_symbols_both_languages_model.h5',
                 'cyrillic': 'all_symbols_cyrillic_model.h5',
@@ -37,27 +43,25 @@ class Model:
             self._model.add(Dense(256, activation='relu'))
             self._model.add(Dense(69, activation='softmax'))
             self._model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
-        if data:
-            self._train, self._val = data
-        else:
-            self._train, self._val = None, None
+            self.__letter_processing_needed = False
         self._train_history = None
 
-    def train_model(self, n_epochs: int = 10, ignore_save_history: bool = 0) -> None:
+
+    def train_model(self, train_data: tensorflow.data.Dataset, val_data: tensorflow.data.Dataset, n_epochs: int = 10, ignore_save_history: bool = False) -> None:
         '''
 
         Parameters
         ----------
         n_epochs
         ignore_save_history
+        train_data
+        val_data
 
         Returns
         -------
 
         '''
-        if not self._train:
-            raise ValueError('no data to train')
-        model_training_history = self._model.fit(self._train, self._val, epochs=n_epochs).history
+        model_training_history = self._model.fit(train_data, val_data, epochs=n_epochs).history
         if not ignore_save_history:
             self._train_history = model_training_history
 
@@ -138,7 +142,7 @@ class Model:
 
         Returns
         -------
-
+        int
         '''
         return np.argmax(self._model.predict(np.reshape(input, (1, 28, 28, 1))))
 
@@ -151,8 +155,34 @@ class Model:
 
         Returns
         -------
-
+        str
         '''
+
+        def determine_the_expected_language_is_cyrillic(number_of_trouble_cyrillic_letters: int, number_of_not_trouble_cyrillic_letters: int, number_of_trouble_latin_letters: int, number_of_not_trouble_latin_letters: int) -> bool:
+            '''
+            Parameters
+            ----------
+            number_of_trouble_cyrillic_letters
+            number_of_not_trouble_cyrillic_letters
+            number_of_trouble_latin_letters
+            number_of_not_trouble_latin_letters
+
+            Returns
+            -------
+            bool
+            '''
+            max_not_trouble_letters = max(number_of_not_trouble_latin_letters, number_of_not_trouble_cyrillic_letters)
+            if max_not_trouble_letters != 0:
+                if number_of_not_trouble_cyrillic_letters >= number_of_not_trouble_latin_letters:
+                    return True
+                else:
+                    return False
+            else:
+                if number_of_trouble_cyrillic_letters >= number_of_trouble_latin_letters:
+                    return True
+                else:
+                    return False
+
         alph = {
             10: 'а',  # 43 английская
             19: 'и',
@@ -224,26 +254,66 @@ class Model:
             50: 'h',  # 24 русская
             51: 'i'
         }
-        trouble_pairs = [[10, 43], [21, 53], [23, 55], [24, 50], [25, 57], [27, 58], [28, 45],
-                         [29, 62], [30, 67], [32, 66], [12, 44], [14, 46], [15, 47]]
-        trouble = [j for i in trouble_pairs for j in i]
-        numbs = [i for i in range(10)]
-        rus = [i for i in range(10, 43)]
-        en = [i for i in range(43, 69)]
+        trouble_pairs = {10: 43,
+                         43: 10,
+                         21: 53,
+                         53: 21,
+                         23: 55,
+                         55: 23,
+                         24: 50,
+                         50: 24,
+                         25: 57,
+                         57: 25,
+                         27: 58,
+                         58: 27,
+                         28: 45,
+                         45: 28,
+                         29: 62,
+                         62: 29,
+                         30: 67,
+                         67: 30,
+                         32: 66,
+                         66: 32,
+                         12: 44,
+                         44: 12,
+                         14: 46,
+                         46: 14,
+                         15: 47,
+                         47: 15
+                         }
+        trouble_indexes = [10, 12, 14, 15, 21, 23, 24, 25, 27, 28, 29, 30, 32, 43, 44, 45, 46, 47, 50, 53, 55, 57, 58,
+                           62, 66, 67]
+        cyrillic_index = set(range(10, 43))
+        latin_index = set(range(43, 69))
+        number_of_trouble_cyrillic_letters = 0
+        number_of_not_trouble_cyrillic_letters = 0
+        number_of_trouble_latin_letters = 0
+        number_of_not_trouble_latin_letters = 0
         answer = []
-        structure = [0, 0, 0]
         letters = Input.get_letters(path)
         for letter in letters:
             prediction = self.predict(letter)
+            if self.__letter_processing_needed:
+                if letter not in trouble_indexes:
+                    if letter in cyrillic_index:
+                        number_of_not_trouble_cyrillic_letters += 1
+                    else:
+                        number_of_not_trouble_latin_letters += 1
+                else:
+                    if letter in cyrillic_index:
+                        number_of_trouble_cyrillic_letters += 1
+                    else:
+                        number_of_trouble_latin_letters += 1
             answer.append(prediction)
-            res = (int((prediction in numbs)) * 0 + int((prediction in rus)) * 1 + int((prediction in en)) * 2)
-            structure[res] += 1
-        language = [rus, numbs, en][structure.index(max(structure))]
-        for l in range(len(answer)):
-            if answer[l] in trouble:
-                for pair in trouble_pairs:
-                    if answer[l] in pair:
-                        if answer[l] not in language:
-                            answer[l] = pair[int(not (pair.index(answer[l])))]
-            answer[l] = alph[answer[l]]
+        expected_language_is_cyrillic = determine_the_expected_language_is_cyrillic(number_of_trouble_cyrillic_letters, number_of_not_trouble_cyrillic_letters, number_of_trouble_latin_letters, number_of_not_trouble_latin_letters)
+        for i in range(len(answer)):
+            if self.__letter_processing_needed:
+                if expected_language_is_cyrillic:
+                    if answer[i] not in cyrillic_index:
+                        answer[i] = trouble_pairs[answer[i]]
+                else:
+                    if answer[i] not in latin_index:
+                        answer[i] = trouble_pairs[answer[i]]
+            answer[i] = alph[answer[i]]
+
         return ''.join(answer)
