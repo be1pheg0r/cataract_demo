@@ -42,7 +42,7 @@ class Cataract:
                    ''')
         return message
 
-    def predict(self, input: np.ndarray) -> int:
+    def _predict(self, input: np.ndarray) -> int:
         '''
 
         Parameters
@@ -149,7 +149,7 @@ class Cataract:
             en = [i for i in range(43, 69)]
             structure = [0, 0, 0]
             for letter in letters:
-                prediction = self.predict(letter)
+                prediction = self._predict(letter)
                 answer.append(prediction)
                 res = (int((prediction in numbs)) * 0 + int((prediction in rus)) * 1 + int((prediction in en)) * 2)
                 structure[res] += 1
@@ -163,7 +163,7 @@ class Cataract:
                 answer[l] = alph[answer[l]]
         else:
             for letter in letters:
-                prediction = self.predict(letter)
+                prediction = self._predict(letter)
                 answer.append(alph[prediction])
         return ''.join(answer)
 
