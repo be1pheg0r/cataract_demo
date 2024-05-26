@@ -14,17 +14,16 @@ class Cataract:
         ----------
         model_language_mode: ['both_languages' | 'cyrillic' |  'latin']
         '''
-        self._lang_code = None
-        # 'both_languages' = 0
-        # 'cyrillic' = 1
-        # 'latin' = 2
         languages = {
             'both_languages': 'all_symbols_both_languages_model.h5',
             'cyrillic': 'all_symbols_cyrillic_model.h5',
             'latin': 'all_symbols_latin_model.h5'
         }
         if model_language_mode in languages.keys():
-            self._lang_code = list(languages.keys()).index(model_language_mode)
+            if model_language_mode == 'both_languages':
+                self.__letter_processing_required = True
+            else:
+                self.__letter_processing_required = False
             self._model = load_model(os.path.join('models/', languages[model_language_mode]))
         else:
             raise ValueError('incorrect language mode')
@@ -66,8 +65,84 @@ class Cataract:
         -------
 
         '''
-        answer = []
-        letters = Input.get_letters(path)
+
+        def process_letters(list_of_letter_indexes: list[int]) -> list[int]:
+            '''
+            Parameters
+            ----------
+            list_of_letter_indexes
+
+            Returns
+            -------
+            list_of_letter_indexes
+            '''
+            trouble_pairs = {10: 43,
+                             43: 10,
+                             21: 53,
+                             53: 21,
+                             23: 55,
+                             55: 23,
+                             24: 50,
+                             50: 24,
+                             25: 57,
+                             57: 25,
+                             27: 58,
+                             58: 27,
+                             28: 45,
+                             45: 28,
+                             29: 62,
+                             62: 29,
+                             30: 67,
+                             67: 30,
+                             32: 66,
+                             66: 32,
+                             12: 44,
+                             44: 12,
+                             14: 46,
+                             46: 14,
+                             15: 47,
+                             47: 15
+                             }
+            trouble_indexes = [10, 12, 14, 15, 21, 23, 24, 25, 27, 28, 29, 30, 32, 43, 44, 45, 46, 47, 50, 53, 55, 57,
+                               58, 62, 66, 67]
+            cyrillic_indexes = set(range(10, 43))
+            latin_indexes = set(range(43, 69))
+            number_of_trouble_cyrillic_letters = 0
+            number_of_not_trouble_cyrillic_letters = 0
+            number_of_trouble_latin_letters = 0
+            number_of_not_trouble_latin_letters = 0
+            for index in list_of_letter_indexes:
+                if index in trouble_indexes:
+                    if index in cyrillic_indexes:
+                        number_of_trouble_cyrillic_letters += 1
+                    elif index in latin_indexes:
+                        number_of_trouble_latin_letters += 1
+                else:
+                    if index in cyrillic_indexes:
+                        number_of_not_trouble_cyrillic_letters += 1
+                    elif index in latin_indexes:
+                        number_of_not_trouble_latin_letters += 1
+            max_not_trouble_letters = max(number_of_not_trouble_latin_letters, number_of_not_trouble_cyrillic_letters)
+            if max_not_trouble_letters != 0:
+                if number_of_not_trouble_cyrillic_letters >= number_of_not_trouble_latin_letters:
+                    expected_language_is_cyrillic = True
+                else:
+                    expected_language_is_cyrillic = False
+            else:
+                if number_of_trouble_cyrillic_letters >= number_of_trouble_latin_letters:
+                    expected_language_is_cyrillic = True
+                else:
+                    expected_language_is_cyrillic = False
+            for i in range(len(list_of_letter_indexes)):
+                if expected_language_is_cyrillic:
+                    if list_of_letter_indexes[i] not in cyrillic_indexes:
+                        list_of_letter_indexes[i] = trouble_pairs[list_of_letter_indexes[i]]
+                else:
+                    if list_of_letter_indexes[i] not in latin_indexes:
+                        list_of_letter_indexes[i] = trouble_pairs[list_of_letter_indexes[i]]
+            return list_of_letter_indexes
+
+
         alph = {
             10: 'а',  # 43 английская
             19: 'и',
@@ -139,31 +214,17 @@ class Cataract:
             50: 'h',  # 24 русская
             51: 'i'
         }
-        if self._lang_code == 0:
+        answer = ''
+        letter_indexes = []
+        letters = Input.get_letters(path)
+        for letter in letters:
+            prediction = self._predict(letter)
+            letter_indexes.append(prediction)
+        if self.__letter_processing_required:
+            process_letters(letter_indexes)
+        for index in letter_indexes:
+            answer += alph[index]
+        return answer
 
-            trouble_pairs = [[10, 43], [21, 53], [23, 55], [24, 50], [25, 57], [27, 58], [28, 45],
-                             [29, 62], [30, 67], [32, 66], [12, 44], [14, 46], [15, 47]]
-            trouble = [j for i in trouble_pairs for j in i]
-            numbs = [i for i in range(10)]
-            rus = [i for i in range(10, 43)]
-            en = [i for i in range(43, 69)]
-            structure = [0, 0, 0]
-            for letter in letters:
-                prediction = self._predict(letter)
-                answer.append(prediction)
-                res = (int((prediction in numbs)) * 0 + int((prediction in rus)) * 1 + int((prediction in en)) * 2)
-                structure[res] += 1
-            language = [rus, numbs, en][structure.index(max(structure))]
-            for l in range(len(answer)):
-                if answer[l] in trouble:
-                    for pair in trouble_pairs:
-                        if answer[l] in pair:
-                            if answer[l] not in language:
-                                answer[l] = pair[int(not (pair.index(answer[l])))]
-                answer[l] = alph[answer[l]]
-        else:
-            for letter in letters:
-                prediction = self._predict(letter)
-                answer.append(alph[prediction])
-        return ''.join(answer)
+
 
