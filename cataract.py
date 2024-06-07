@@ -135,10 +135,10 @@ class Cataract:
                     expected_language_is_cyrillic = False
             for i in range(len(list_of_letter_indexes)):
                 if expected_language_is_cyrillic:
-                    if list_of_letter_indexes[i] not in cyrillic_indexes:
+                    if list_of_letter_indexes[i] not in cyrillic_indexes and list_of_letter_indexes[i] in trouble_indexes:
                         list_of_letter_indexes[i] = trouble_pairs[list_of_letter_indexes[i]]
                 else:
-                    if list_of_letter_indexes[i] not in latin_indexes:
+                    if list_of_letter_indexes[i] not in latin_indexes and list_of_letter_indexes[i] in trouble_indexes:
                         list_of_letter_indexes[i] = trouble_pairs[list_of_letter_indexes[i]]
             return list_of_letter_indexes
 
