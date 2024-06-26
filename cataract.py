@@ -12,12 +12,13 @@ class Cataract:
 
         Parameters
         ----------
-        model_language_mode: ['both_languages' | 'cyrillic' |  'latin']
+        model_language_mode: ['both_languages' | 'cyrillic' |  'latin' | digits]
         '''
         languages = {
-            'both_languages': 'all_symbols_both_languages_model.h5',
-            'cyrillic': 'all_symbols_cyrillic_model.h5',
-            'latin': 'all_symbols_latin_model.h5'
+            'both_languages': 'both_languages_model.h5',
+            'cyrillic': 'cyrillic_language_model.h5',
+            'latin': 'latin_language_model.h5',
+            'digits': 'digits_model.h5'
         }
         if model_language_mode in languages.keys():
             if model_language_mode == 'both_languages':
@@ -142,7 +143,6 @@ class Cataract:
                         list_of_letter_indexes[i] = trouble_pairs[list_of_letter_indexes[i]]
             return list_of_letter_indexes
 
-
         alph = {
             10: 'а',  # 43 английская
             19: 'и',
@@ -214,6 +214,7 @@ class Cataract:
             50: 'h',  # 24 русская
             51: 'i'
         }
+
         answer = ''
         letter_indexes = []
         letters = Input.get_letters(path)
